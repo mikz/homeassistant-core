@@ -6600,6 +6600,12 @@
       "config_flow": true,
       "iot_class": "local_polling"
     },
+    "velux_active": {
+      "name": "velux_active",
+      "integration_type": "hub",
+      "config_flow": true,
+      "iot_class": "cloud_polling"
+    },
     "venstar": {
       "name": "Venstar",
       "integration_type": "hub",
