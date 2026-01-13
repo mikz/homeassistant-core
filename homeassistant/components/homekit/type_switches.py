@@ -41,6 +41,7 @@ from homeassistant.components.vacuum import (
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     ATTR_SUPPORTED_FEATURES,
+    CONF_DEFAULT,
     CONF_TYPE,
     SERVICE_CLOSE_VALVE,
     SERVICE_OPEN_VALVE,
@@ -53,6 +54,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, State, callback, split_entity_id
 from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.service import async_get_cached_service_description
 from homeassistant.util import dt as dt_util
 
 from .accessories import TYPES, HomeAccessory, HomeDriver
@@ -115,6 +117,22 @@ VALVE_REMAINING_TIME_MAX_DEFAULT = 60 * 60 * 48
 ACTIVATE_ONLY_SWITCH_DOMAINS = {"button", "input_button", "scene", "script"}
 
 ACTIVATE_ONLY_RESET_SECONDS = 10
+
+
+def _get_service_field_defaults(
+    hass: HomeAssistant, domain: str, service: str
+) -> dict[str, Any]:
+    """Return field defaults from the cached service description."""
+    if not (
+        description := async_get_cached_service_description(hass, domain, service)
+    ) or not (fields := description.get("fields")):
+        return {}
+
+    return {
+        field_name: field[CONF_DEFAULT]
+        for field_name, field in fields.items()
+        if isinstance(field, dict) and CONF_DEFAULT in field
+    }
 
 
 @TYPES.register("Outlet")
@@ -193,7 +211,7 @@ class Switch(HomeAccessory):
         params = {ATTR_ENTITY_ID: self.entity_id}
         if self._domain == "script":
             service = self._object_id
-            params = {}
+            params = _get_service_field_defaults(self.hass, self._domain, service)
         elif self._domain == button.DOMAIN:
             service = button.SERVICE_PRESS
         elif self._domain == input_button.DOMAIN:
