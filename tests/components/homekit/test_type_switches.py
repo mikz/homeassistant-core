@@ -48,6 +48,7 @@ from homeassistant.components.vacuum import (
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     ATTR_SUPPORTED_FEATURES,
+    CONF_DEFAULT,
     CONF_TYPE,
     SERVICE_CLOSE_VALVE,
     SERVICE_OPEN_VALVE,
@@ -58,6 +59,7 @@ from homeassistant.const import (
     STATE_OPEN,
 )
 from homeassistant.core import Event, HomeAssistant, split_entity_id
+from homeassistant.helpers.service import async_set_service_schema
 from homeassistant.util import dt as dt_util
 
 from tests.common import async_fire_time_changed, async_mock_service
@@ -556,6 +558,42 @@ async def test_script_switch(
     await hass.async_block_till_done()
     assert acc.char_on.value is False
     assert len(events) == 1
+
+
+async def test_script_switch_includes_field_defaults(
+    hass: HomeAssistant, hk_driver, events: list[Event]
+) -> None:
+    """Test script defaults are passed when triggered from HomeKit."""
+    domain = "script"
+    entity_id = "script.test"
+
+    hass.states.async_set(entity_id, None)
+    await hass.async_block_till_done()
+
+    call_turn_on = async_mock_service(hass, domain, "test")
+
+    async_set_service_schema(
+        hass,
+        domain,
+        "test",
+        {
+            "fields": {
+                "greeting": {CONF_DEFAULT: "world"},
+            },
+        },
+    )
+
+    acc = Switch(hass, hk_driver, "Switch", entity_id, 2, None)
+    acc.run()
+    await hass.async_block_till_done()
+
+    acc.char_on.client_update_value(True)
+    await hass.async_block_till_done()
+
+    assert call_turn_on
+    assert call_turn_on[0].data == {"greeting": "world"}
+    assert len(events) == 1
+    assert events[-1].data[ATTR_VALUE] is None
 
 
 @pytest.mark.parametrize(
